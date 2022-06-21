@@ -21,11 +21,15 @@ TESTS = list(enumerate((
     algorithms.SpreadTopN,
 )))
 
-@pytest.fixture(scope='session', autouse=True)
-def show_plot():
-    yield
-    plt.tight_layout()
+@pytest.fixture(scope='session')
+def subplots():
+    fig, axs = plt.subplots(3, len(TESTS), sharey='row')
+    axs[0][0].set_ylabel(f"total ids")
+    axs[1][0].set_ylabel(f"ids per slot")
+    axs[2][0].set_ylabel(f"requests per slot")
+    yield fig, axs
     plt.show()
+
 
 IDS = 100
 SLOTS = 60
@@ -42,7 +46,8 @@ def ids_seq():
 
 
 @pytest.mark.parametrize("fn_i,fn", TESTS)
-def test(fn_i, fn, ids_seq):
+def test(fn_i, fn, ids_seq, subplots):
+    fig, ax = subplots
     uniq_ids_total = set()
     uniq_ids_per_slot = {}
     slot_seq = []
@@ -55,20 +60,16 @@ def test(fn_i, fn, ids_seq):
         slot_seq.append(slot)
         uniq_ids_per_slot.setdefault(slot, set()).add(id)
 
-    grid = (3, len(TESTS))
+    ax0 = ax[0][fn_i]
+    ax0.set_title(fn.__name__)
+    ax0.hist(ids_seq)
 
-    plt.subplot2grid(grid, (0, fn_i), rowspan=1, colspan=1)
-    plt.title(f"total ids = {len(uniq_ids_total)}")
-    plt.hist(ids_seq)
+    ax1 = ax[1][fn_i]
+    ax1.hist(slot_seq, bins=SLOTS)
 
-    plt.subplot2grid(grid, (1, fn_i), rowspan=1, colspan=1)
-    plt.title(f"requests per slot, {fn.__name__}")
-    plt.hist(slot_seq, bins=SLOTS)
-
-    plt.subplot2grid(grid, (2, fn_i), rowspan=1, colspan=1)
-    plt.title(f"ids per slot")
     uniq_ids_per_slot = list(uniq_ids_per_slot.items())
-    plt.bar(
+    ax2 = ax[2][fn_i]
+    ax2.bar(
         x=[k for k, _ in uniq_ids_per_slot],
-        height=[len(v) for _, v in uniq_ids_per_slot]
+        height=[len(v) for _, v in uniq_ids_per_slot],
     )
